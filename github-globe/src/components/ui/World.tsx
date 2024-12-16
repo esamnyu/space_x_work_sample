@@ -4,8 +4,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import axios from 'axios';
 
 import { latLongToVector3, createDotMatrix } from '../../lib/utils';
-import { WorldProps, CountriesData, Polygon, MultiPolygon } from '../types';
-
+import { WorldProps, CountriesData, Polygon, MultiPolygon } from '@/types';
 export const World: React.FC<WorldProps> = ({ data, globeConfig, satellites = [] }) => {
   const mountRef = useRef<HTMLDivElement>(null);
   const controlsRef = useRef<OrbitControls | null>(null);

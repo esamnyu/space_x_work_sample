@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { World } from "./World";
-import { Satellite } from "../types";
+import { Satellite } from '@/types';
 
 // Satellite colors
 const colors = ["#06b6d4", "#3b82f6", "#6366f1"];
