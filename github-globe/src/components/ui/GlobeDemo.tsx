@@ -77,6 +77,36 @@ export function GlobeDemo() {
     );
   };
 
+  const formStarShieldGrid = () => {
+    // Assign a stable grid formation around the equator.
+    // For example, arrange satellites in a 5xN grid:
+    // We'll assume a small altitude and lat/lng steps.
+    const rows = 5; 
+    const cols = Math.ceil(satellites.length / rows);
+    const latStep = 10;  // Degrees between rows
+    const lngStep = 15;  // Degrees between columns
+    const baseLat = -((rows-1)*latStep)/2; // Center the grid around lat=0
+    const baseLng = -((cols-1)*lngStep)/2; // Center the grid around lng=0
+
+    const newFormation = satellites.map((sat, index) => {
+      const row = Math.floor(index / cols);
+      const col = index % cols;
+
+      const newLat = baseLat + row * latStep;
+      const newLng = baseLng + col * lngStep;
+
+      return {
+        ...sat,
+        lat: newLat,
+        lng: newLng,
+        alt: 0.05, // keep them in a stable altitude
+      };
+    });
+
+    setSatellites(newFormation);
+    console.log("Satellites repositioned into a star shield grid formation");
+  };
+
   return (
     <div className="relative w-full min-h-screen bg-black">
       <div className="absolute inset-0 flex flex-col items-center">
@@ -94,12 +124,18 @@ export function GlobeDemo() {
             Interactive 3D globe showing worldwide connections
           </p>
           
-          <div className="mt-4">
+          <div className="mt-4 flex flex-col gap-2 items-center">
             <button 
               onClick={addSatellite}
               className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
             >
               Add Satellite
+            </button>
+            <button
+              onClick={formStarShieldGrid}
+              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg"
+            >
+              Form Star Shield Grid
             </button>
             <div className="text-sm text-neutral-400 mt-2">
               Active Satellites: {satellites.length}
