@@ -4,39 +4,10 @@ import { motion } from "framer-motion";
 import { World } from "./World";
 import { Satellite } from "../types";
 
-// Sample Arcs Data and Colors
+// Satellite colors
 const colors = ["#06b6d4", "#3b82f6", "#6366f1"];
-const sampleArcs = [
-  {
-    order: 1,
-    startLat: -19.885592,
-    startLng: -43.951191,
-    endLat: -22.9068,
-    endLng: -43.1729,
-    arcAlt: 0.1,
-    color: colors[Math.floor(Math.random() * colors.length)],
-  },
-  {
-    order: 2,
-    startLat: 28.6139,
-    startLng: 77.209,
-    endLat: 3.139,
-    endLng: 101.6869,
-    arcAlt: 0.2,
-    color: colors[Math.floor(Math.random() * colors.length)],
-  },
-  {
-    order: 3,
-    startLat: 51.5072,
-    startLng: -0.1276,
-    endLat: 40.7128,
-    endLng: -74.006,
-    arcAlt: 0.3,
-    color: colors[Math.floor(Math.random() * colors.length)],
-  },
-];
 
-// Globe Configuration
+// Globe configuration
 const globeConfig = {
   pointSize: 10,
   globeColor: "#062056",
@@ -51,17 +22,13 @@ const globeConfig = {
   directionalLeftLight: "#ffffff",
   directionalTopLight: "#ffffff",
   pointLight: "#ffffff",
-  arcTime: 1000,
-  arcLength: 0.9,
-  rings: 1,
-  maxRings: 3,
-  initialPosition: { lat: 22.3193, lng: 114.1694 },
   autoRotate: true,
   autoRotateSpeed: 0.5,
 };
 
 export function GlobeDemo() {
   const [satellites, setSatellites] = useState<Satellite[]>([]);
+  const [showControls, setShowControls] = useState(true);
 
   const addSatellite = () => {
     const newSatellite: Satellite = {
@@ -71,86 +38,96 @@ export function GlobeDemo() {
       alt: 0.05,
       color: colors[Math.floor(Math.random() * colors.length)],
     };
-    setSatellites(prev => [...prev, newSatellite]);
-    console.log(
-      `Added Satellite ${newSatellite.id} at lat=${newSatellite.lat.toFixed(2)} lng=${newSatellite.lng.toFixed(2)}`
-    );
+    setSatellites((prev) => [...prev, newSatellite]);
   };
 
   const formStarShieldGrid = () => {
-    // Assign a stable grid formation around the equator.
-    // For example, arrange satellites in a 5xN grid:
-    // We'll assume a small altitude and lat/lng steps.
-    const rows = 5; 
+    const rows = 5;
     const cols = Math.ceil(satellites.length / rows);
-    const latStep = 10;  // Degrees between rows
-    const lngStep = 15;  // Degrees between columns
-    const baseLat = -((rows-1)*latStep)/2; // Center the grid around lat=0
-    const baseLng = -((cols-1)*lngStep)/2; // Center the grid around lng=0
+    const latStep = 10;
+    const lngStep = 15;
+    const baseLat = -((rows - 1) * latStep) / 2;
+    const baseLng = -((cols - 1) * lngStep) / 2;
 
     const newFormation = satellites.map((sat, index) => {
       const row = Math.floor(index / cols);
       const col = index % cols;
-
-      const newLat = baseLat + row * latStep;
-      const newLng = baseLng + col * lngStep;
-
       return {
         ...sat,
-        lat: newLat,
-        lng: newLng,
-        alt: 0.05, // keep them in a stable altitude
+        lat: baseLat + row * latStep,
+        lng: baseLng + col * lngStep,
+        alt: 0.05,
       };
     });
 
     setSatellites(newFormation);
-    console.log("Satellites repositioned into a star shield grid formation");
   };
 
   return (
-    <div className="relative w-full min-h-screen bg-black">
-      <div className="absolute inset-0 flex flex-col items-center">
-        
-        <motion.div
-          className="text-center mt-20 z-10"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 1 }}
+    <div className="relative w-full h-screen bg-black overflow-hidden">
+      {/* Full-screen Globe */}
+      <div className="absolute inset-0">
+        <World data={[]} globeConfig={globeConfig} satellites={satellites} />
+      </div>
+
+      {/* Left-aligned Title */}
+      <motion.div
+        className="absolute left-10 top-10 z-10"
+        initial={{ opacity: 0, x: -20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 1 }}
+      >
+        <h1 className="text-5xl font-bold text-white tracking-wide">
+          Starshield Visualization
+        </h1>
+        <p className="text-lg text-gray-300 mt-2">
+          A dynamic view of global satellite networks
+        </p>
+      </motion.div>
+
+      {/* Floating Control Button */}
+      <motion.div
+        className="absolute top-4 right-4 z-20"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 1 }}
+      >
+        <button
+          onClick={() => setShowControls(!showControls)}
+          className="text-white bg-blue-600/50 hover:bg-blue-600/80 px-4 py-2 rounded-full backdrop-blur-sm transition-all"
         >
-          <h2 className="text-4xl font-bold text-white">
-            Global Network Visualization
-          </h2>
-          <p className="text-lg text-neutral-200 max-w-md mt-2">
-            Interactive 3D globe showing worldwide connections
-          </p>
-          
-          <div className="mt-4 flex flex-col gap-2 items-center">
-            <button 
+          {showControls ? "Hide Controls" : "Show Controls"}
+        </button>
+      </motion.div>
+
+      {/* Controls Panel */}
+      {showControls && (
+        <motion.div
+          className="absolute right-4 top-16 bg-gray-900/90 text-white rounded-xl p-6 shadow-2xl backdrop-blur-md z-20 border border-gray-700/50"
+          initial={{ x: 200, opacity: 0 }}
+          animate={{ x: 0, opacity: 1 }}
+          transition={{ duration: 0.5 }}
+        >
+          <div className="flex flex-col items-center gap-4">
+            <button
               onClick={addSatellite}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+              className="w-full bg-blue-600/90 hover:bg-blue-500 py-3 px-6 rounded-lg transition-all duration-200 font-medium shadow-lg hover:shadow-blue-500/20 hover:-translate-y-0.5"
             >
               Add Satellite
             </button>
             <button
               onClick={formStarShieldGrid}
-              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg"
+              className="w-full bg-emerald-600/90 hover:bg-emerald-500 py-3 px-6 rounded-lg transition-all duration-200 font-medium shadow-lg hover:shadow-emerald-500/20 hover:-translate-y-0.5"
             >
               Form Star Shield Grid
             </button>
-            <div className="text-sm text-neutral-400 mt-2">
+            <div className="w-full h-px bg-gray-700/50 my-2"></div>
+            <p className="text-sm text-gray-300 font-medium">
               Active Satellites: {satellites.length}
-            </div>
+            </p>
           </div>
         </motion.div>
-        
-        <div className="flex-1 w-full relative">
-          <div className="absolute inset-0">
-            <World data={sampleArcs} globeConfig={globeConfig} satellites={satellites} />
-          </div>
-        </div>
-        
-        <div className="absolute bottom-0 inset-x-0 h-40 bg-gradient-to-b from-transparent to-black pointer-events-none" />
-      </div>
+      )}
     </div>
   );
 }
