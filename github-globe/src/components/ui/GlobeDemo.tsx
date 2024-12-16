@@ -1,9 +1,19 @@
 "use client";
-import React from "react";
+import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { World } from "./Globe";
 
+interface Satellite {
+  id: string;
+  lat: number;
+  lng: number;
+  alt: number;
+  color: string;
+}
+
 export function GlobeDemo() {
+  const [satellites, setSatellites] = useState<Satellite[]>([]);
+
   const globeConfig = {
     pointSize: 10,
     globeColor: "#062056",
@@ -58,6 +68,18 @@ export function GlobeDemo() {
     },
   ];
 
+  const addSatellite = () => {
+    const newSatellite: Satellite = {
+      id: `sat${satellites.length + 1}`,
+      lat: Math.random() * 180 - 90,
+      lng: Math.random() * 360 - 180,
+      alt: 0.05,
+      color: colors[Math.floor(Math.random() * colors.length)],
+    };
+    setSatellites(prev => [...prev, newSatellite]);
+    console.log(`Added Satellite ${newSatellite.id} at lat=${newSatellite.lat.toFixed(2)} lng=${newSatellite.lng.toFixed(2)}`);
+  };
+
   return (
     <div className="relative w-full min-h-screen bg-black">
       <div className="absolute inset-0 flex flex-col items-center">
@@ -73,11 +95,23 @@ export function GlobeDemo() {
           <p className="text-lg text-neutral-200 max-w-md mt-2">
             Interactive 3D globe showing worldwide connections
           </p>
+          
+          <div className="mt-4">
+            <button 
+              onClick={addSatellite}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+            >
+              Add Satellite
+            </button>
+            <div className="text-sm text-neutral-400 mt-2">
+              Active Satellites: {satellites.length}
+            </div>
+          </div>
         </motion.div>
         
         <div className="flex-1 w-full relative">
           <div className="absolute inset-0">
-            <World data={sampleArcs} globeConfig={globeConfig} />
+            <World data={sampleArcs} globeConfig={globeConfig} satellites={satellites} />
           </div>
         </div>
         
