@@ -9,33 +9,33 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@react-three/drei": "^9.99.0",
-    "@react-three/fiber": "^8.15.16",
-    "axios": "^1.7.9",
-    "clsx": "^2.1.0",
-    "framer-motion": "^11.15.0",
-    "lucide-react": "^0.468.0",
-    "next": "^15.1.0",
+    "@react-three/drei": "^9.92.7",
+    "@react-three/fiber": "^8.15.12",
+    "axios": "^1.6.2",
+    "clsx": "^2.0.0",
+    "framer-motion": "^10.16.16",
+    "lucide-react": "^0.294.0",
+    "next": "^14.2.20",
     "react": "18.2.0",
     "react-dom": "18.2.0",
-    "tailwind-merge": "^2.2.1",
-    "three": "^0.161.0",
-    "three-globe": "^2.30.0"
+    "tailwind-merge": "^2.1.0",
+    "three": "^0.159.0",
+    "three-globe": "^2.29.3"
   },
   "devDependencies": {
-    "@types/geojson": "^7946.0.15",
+    "@types/geojson": "^7946.0.13",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
-    "@types/three": "^0.161.2",
-    "autoprefixer": "^10.0.1",
+    "@types/three": "^0.159.0",
+    "autoprefixer": "^10.4.16",
     "eslint": "^8.56.0",
-    "eslint-config-next": "14.1.0",
-    "postcss": "^8",
-    "tailwindcss": "^3.4.1",
+    "eslint-config-next": "14.0.4",
+    "postcss": "^8.4.32",
+    "tailwindcss": "^3.3.6",
     "typescript": "^5"
   },
   "overrides": {
-    "three": "^0.161.0"
+    "three": "^0.159.0"
   }
 }
