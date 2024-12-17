@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { World } from "./World";
-import { Satellite } from '@/types';
+import { SatelliteData } from '@/types';
 
 // Satellite colors
 const colors = ["#06b6d4", "#3b82f6", "#6366f1"];
@@ -27,12 +27,11 @@ const globeConfig = {
 };
 
 export function GlobeDemo() {
-  const [satellites, setSatellites] = useState<Satellite[]>([]);
+  const [satellites, setSatellites] = useState<SatelliteData[]>([]);
   const [showControls, setShowControls] = useState(true);
 
   const addSatellite = () => {
-    const newSatellite: Satellite = {
-      id: `sat${satellites.length + 1}`,
+    const newSatellite: SatelliteData = {
       lat: Math.random() * 180 - 90,
       lng: Math.random() * 360 - 180,
       alt: 0.05,

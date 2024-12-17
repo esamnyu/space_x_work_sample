@@ -1,10 +1,18 @@
+"use client";
 import React, { useRef, useEffect, useState } from 'react';
 import * as THREE from 'three';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import axios from 'axios';
+import type { Feature, Geometry, Position, MultiPolygon as GeoJSONMultiPolygon, Polygon as GeoJSONPolygon } from 'geojson';
 
 import { latLongToVector3, createDotMatrix } from '../../lib/utils';
-import { WorldProps, CountriesData, Polygon, MultiPolygon } from '@/types';
+import { WorldProps, CountriesData } from '@/types';
+
+interface GeoProcessing {
+  type: 'Polygon' | 'MultiPolygon';
+  coordinates: number[][][] | number[][][][];
+}
+
 export const World: React.FC<WorldProps> = ({ data, globeConfig, satellites = [] }) => {
   const mountRef = useRef<HTMLDivElement>(null);
   const controlsRef = useRef<OrbitControls | null>(null);
@@ -13,13 +21,14 @@ export const World: React.FC<WorldProps> = ({ data, globeConfig, satellites = []
   const countriesRef = useRef<THREE.Group>(new THREE.Group());
   const satellitesRef = useRef<THREE.Group>(new THREE.Group());
   
-  const sceneRef = useRef<THREE.Scene>();
-  const cameraRef = useRef<THREE.PerspectiveCamera>();
-  const rendererRef = useRef<THREE.WebGLRenderer>();
+  const sceneRef = useRef<THREE.Scene | null>(null);
+  const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
+  const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   
   const [countriesData, setCountriesData] = useState<CountriesData | null>(null);
 
-  // Fetch countries GeoJSON data
+  const isClient = typeof window !== 'undefined';
+
   useEffect(() => {
     const fetchCountries = async () => {
       try {
@@ -33,23 +42,26 @@ export const World: React.FC<WorldProps> = ({ data, globeConfig, satellites = []
   }, []);
 
   useEffect(() => {
-    if (!mountRef.current) return;
+    if (!mountRef.current || !isClient) return;
 
-    // SCENE SETUP
+    // Scene setup
     const scene = new THREE.Scene();
     scene.background = new THREE.Color('#000000');
     sceneRef.current = scene;
 
-    // CAMERA SETUP
+    // Camera setup
     const camera = new THREE.PerspectiveCamera(
       75, window.innerWidth / window.innerHeight, 0.1, 1000
     );
     camera.position.z = 2.5;
-    camera.lookAt(new THREE.Vector3(0,0,0));
+    camera.lookAt(0, 0, 0);
     cameraRef.current = camera;
     
-    // RENDERER SETUP
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    // Renderer setup
+    const renderer = new THREE.WebGLRenderer({ 
+      antialias: true, 
+      alpha: true 
+    });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     mountRef.current.appendChild(renderer.domElement);
@@ -57,7 +69,7 @@ export const World: React.FC<WorldProps> = ({ data, globeConfig, satellites = []
 
     const radius = 1;
 
-    // GLOBE
+    // Globe
     const globeMaterial = new THREE.MeshPhongMaterial({
       color: globeConfig.globeColor,
       emissive: new THREE.Color(globeConfig.emissive),
@@ -70,9 +82,10 @@ export const World: React.FC<WorldProps> = ({ data, globeConfig, satellites = []
     const globe = new THREE.Mesh(globeGeometry, globeMaterial);
     scene.add(globe);
 
-    // DOT MATRIX
+    // Dot matrix
     const points = createDotMatrix();
     const dotGeometry = new THREE.BufferGeometry().setFromPoints(points);
+    const dotTexture = new THREE.TextureLoader().load('/dot-texture.svg');
     const dotMaterial = new THREE.PointsMaterial({
       color: globeConfig.polygonColor,
       size: globeConfig.pointSize * 0.005,
@@ -80,13 +93,13 @@ export const World: React.FC<WorldProps> = ({ data, globeConfig, satellites = []
       transparent: true,
       opacity: 0.6,
       alphaTest: 0.5,
-      map: new THREE.TextureLoader().load('/dot-texture.svg'),
+      map: dotTexture,
     });
     const dotMatrix = new THREE.Points(dotGeometry, dotMaterial);
-    dotMatrix.scale.set(1.001, 1.001, 1.001);
+    dotMatrix.scale.setScalar(1.001);
     scene.add(dotMatrix);
 
-    // ATMOSPHERE
+    // Atmosphere
     if (globeConfig.showAtmosphere) {
       const atmosphereGeometry = new THREE.SphereGeometry(
         radius + globeConfig.atmosphereAltitude, 64, 64
@@ -101,7 +114,7 @@ export const World: React.FC<WorldProps> = ({ data, globeConfig, satellites = []
       scene.add(atmosphere);
     }
 
-    // LIGHTING
+    // Lighting
     const ambientLight = new THREE.AmbientLight(globeConfig.ambientLight, 0.5);
     scene.add(ambientLight);
 
@@ -117,22 +130,19 @@ export const World: React.FC<WorldProps> = ({ data, globeConfig, satellites = []
     pointLight.position.set(5, 3, 5);
     scene.add(pointLight);
 
-    // ARCS
+    // Arcs
     scene.add(arcsRef.current);
     data.forEach((arc) => {
       const start = latLongToVector3(arc.startLat, arc.startLng, radius);
       const end = latLongToVector3(arc.endLat, arc.endLng, radius);
 
-      const arcCurve = new THREE.QuadraticBezierCurve3(
-        start,
-        new THREE.Vector3(
-          (start.x + end.x) * 0.5,
-          (start.y + end.y) * 0.5 + radius * arc.arcAlt,
-          (start.z + end.z) * 0.5
-        ),
-        end
+      const mid = new THREE.Vector3(
+        (start.x + end.x) * 0.5,
+        (start.y + end.y) * 0.5 + radius * arc.arcAlt,
+        (start.z + end.z) * 0.5
       );
 
+      const arcCurve = new THREE.QuadraticBezierCurve3(start, mid, end);
       const arcPoints = arcCurve.getPoints(50);
       const arcGeometry = new THREE.BufferGeometry().setFromPoints(arcPoints);
       const arcMaterial = new THREE.LineBasicMaterial({ 
@@ -146,46 +156,61 @@ export const World: React.FC<WorldProps> = ({ data, globeConfig, satellites = []
       arcsRef.current.add(arcLine);
     });
 
-    // COUNTRIES
+    // Countries
     scene.add(countriesRef.current);
 
-    function processPolygon(polygon: Polygon | {type: 'Polygon', coordinates: number[][][]}, group: THREE.Group, radius: number, color: THREE.Color) {
+    const processPolygon = (
+      polygon: GeoJSONPolygon | GeoProcessing,
+      group: THREE.Group,
+      radius: number,
+      color: THREE.Color
+    ) => {
       const polyPoints: THREE.Vector3[] = [];
 
-      polygon.coordinates[0].forEach(([lon, lat]) => {
+      // Ensure we're working with the correct coordinate type
+      const coordinates = polygon.coordinates[0] as Position[];
+
+      coordinates.forEach((coord) => {
+        const lon = Number(coord[0]);
+        const lat = Number(coord[1]);
         const vec = latLongToVector3(lat, lon, radius * 1.001);
         polyPoints.push(vec);
       });
 
       const countryGeometry = new THREE.BufferGeometry().setFromPoints(polyPoints);
       const countryMaterial = new THREE.LineBasicMaterial({
-        color: color,
+        color,
         transparent: true,
         opacity: 0.3,
       });
 
       const countryLine = new THREE.LineLoop(countryGeometry, countryMaterial);
       group.add(countryLine);
-    }
+    };
 
     if (countriesData) {
-      countriesData.features.forEach((feature) => {
-        const geometry = feature.geometry;
+      countriesData.features.forEach((feature: Feature) => {
+        const geometry = feature.geometry as GeoJSONPolygon | GeoJSONMultiPolygon;
+        
         if (geometry.type === 'Polygon') {
-          processPolygon(geometry as Polygon, countriesRef.current, radius, new THREE.Color(globeConfig.polygonColor));
+          processPolygon(geometry, countriesRef.current, radius, new THREE.Color(globeConfig.polygonColor));
         } else if (geometry.type === 'MultiPolygon') {
-          (geometry as MultiPolygon).coordinates.forEach((polygonCoords) => {
-            processPolygon({ type: 'Polygon', coordinates: polygonCoords }, countriesRef.current, radius, new THREE.Color(globeConfig.polygonColor));
+          geometry.coordinates.forEach((polygonCoords) => {
+            processPolygon(
+              { type: 'Polygon', coordinates: polygonCoords },
+              countriesRef.current,
+              radius,
+              new THREE.Color(globeConfig.polygonColor)
+            );
           });
         }
       });
     }
 
-    // SATELLITES
-    const satelliteGroup = satellitesRef.current;
-    scene.add(satelliteGroup);
+    // Satellites
+    scene.add(satellitesRef.current);
 
-    // ORBIT CONTROLS
+    // Controls
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
@@ -196,78 +221,80 @@ export const World: React.FC<WorldProps> = ({ data, globeConfig, satellites = []
     controls.autoRotateSpeed = globeConfig.autoRotateSpeed;
     controlsRef.current = controls;
 
-    // DRIFT FUNCTION
     const driftSatellite = (satMesh: THREE.Object3D) => {
       satMesh.position.x += (Math.random() - 0.5) * 0.0005;
       satMesh.position.y += (Math.random() - 0.5) * 0.0005;
       satMesh.position.z += (Math.random() - 0.5) * 0.0005;
     };
 
-    // ANIMATION LOOP
+    // Animation
     const animate = () => {
+      if (!rendererRef.current || !sceneRef.current || !cameraRef.current) return;
+      
       requestAnimationFrame(animate);
       controls.update();
 
       if (globeConfig.autoRotate) {
         dotMatrix.rotation.y += globeConfig.autoRotateSpeed * 0.001;
         countriesRef.current.rotation.y += globeConfig.autoRotateSpeed * 0.001;
-        satelliteGroup.rotation.y += globeConfig.autoRotateSpeed * 0.001;
+        satellitesRef.current.rotation.y += globeConfig.autoRotateSpeed * 0.001;
       }
 
-      // Move satellites back towards orbit
-      satelliteGroup.children.forEach(satMesh => {
+      // Satellite movement
+      satellitesRef.current.children.forEach(satMesh => {
         const userData = satMesh.userData;
-        if (userData && userData.targetLat !== undefined) {
-          const targetPos = latLongToVector3(userData.targetLat, userData.targetLng, 1 + userData.targetAlt);
+        if (userData?.targetLat !== undefined) {
+          const targetPos = latLongToVector3(
+            userData.targetLat,
+            userData.targetLng,
+            1 + userData.targetAlt
+          );
           satMesh.position.lerp(targetPos, 0.05);
 
-          // Occasionally drift
           if (Math.random() < 0.001) {
             driftSatellite(satMesh);
           }
         }
       });
 
-      renderer.render(scene, camera);
+      rendererRef.current.render(sceneRef.current, cameraRef.current);
     };
 
     const handleResize = () => {
+      if (!cameraRef.current || !rendererRef.current) return;
+      
       const width = window.innerWidth;
       const height = window.innerHeight;
-      camera.aspect = width / height;
-      camera.updateProjectionMatrix();
-      renderer.setSize(width, height);
+      
+      cameraRef.current.aspect = width / height;
+      cameraRef.current.updateProjectionMatrix();
+      rendererRef.current.setSize(width, height);
     };
 
     window.addEventListener('resize', handleResize);
     animate();
 
-    // CLEANUP
     return () => {
       window.removeEventListener('resize', handleResize);
-      if (mountRef.current) {
-        mountRef.current.removeChild(renderer.domElement);
+      if (mountRef.current && rendererRef.current) {
+        mountRef.current.removeChild(rendererRef.current.domElement);
       }
-      renderer.dispose();
-      if (controlsRef.current) controlsRef.current.dispose();
+      rendererRef.current?.dispose();
+      controlsRef.current?.dispose();
     };
   }, [data, globeConfig, countriesData]);
 
-  // UPDATE SATELLITES WHEN PROPS CHANGE
+  // Satellite updates
   useEffect(() => {
-    if (!sceneRef.current || !satellitesRef.current) return;
-    const satelliteGroup = satellitesRef.current;
-
-    // Clear old satellites
-    satelliteGroup.clear();
+    if (!sceneRef.current || !satellitesRef.current || !isClient) return;
+    
+    satellitesRef.current.clear();
 
     const createSatelliteMesh = (color: string) => {
-      // Body
       const bodyGeometry = new THREE.BoxGeometry(0.02, 0.01, 0.01);
       const bodyMaterial = new THREE.MeshPhongMaterial({ color });
       const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
 
-      // Antenna
       const antennaGeometry = new THREE.CylinderGeometry(0.001, 0.001, 0.02, 8);
       const antennaMaterial = new THREE.MeshPhongMaterial({ color: 0xffffff });
       const antenna = new THREE.Mesh(antennaGeometry, antennaMaterial);
@@ -281,23 +308,24 @@ export const World: React.FC<WorldProps> = ({ data, globeConfig, satellites = []
       const satMesh = createSatelliteMesh(sat.color);
       const position = latLongToVector3(sat.lat, sat.lng, 1 + sat.alt);
       satMesh.position.copy(position);
-      satMesh.userData.targetLat = sat.lat;
-      satMesh.userData.targetLng = sat.lng;
-      satMesh.userData.targetAlt = sat.alt;
+      satMesh.userData = {
+        targetLat: sat.lat,
+        targetLng: sat.lng,
+        targetAlt: sat.alt
+      };
 
-      // Animate scale for smooth appearance
-      satMesh.scale.set(0,0,0);
+      satMesh.scale.set(0, 0, 0);
       let scaleFactor = 0;
       const grow = () => {
         scaleFactor += 0.05;
-        satMesh.scale.set(scaleFactor, scaleFactor, scaleFactor);
+        satMesh.scale.setScalar(scaleFactor);
         if (scaleFactor < 1) requestAnimationFrame(grow);
       };
       grow();
 
-      satelliteGroup.add(satMesh);
+      satellitesRef.current.add(satMesh);
     });
-  }, [satellites]);
+  }, [satellites, isClient]);
 
   return <div ref={mountRef} style={{ width: '100%', height: '100%' }} />;
 };
